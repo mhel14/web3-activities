@@ -2,50 +2,43 @@
 pragma solidity ^0.8.31;
 
 // ====== Activity 1: Caller and Receiver Contracts ======
+interface IFeaturesContract {
+    function getSumOfTwoNums(uint256, uint256) external pure returns (uint256);
+
+    function getDiffOfTwoNums(int256, int256) external pure returns (int256);
+
+    function getProductOfTwoNums(uint256, uint256) external pure returns (uint);
+}
 
 contract Caller {
+    IFeaturesContract public features;
+
+    constructor(address _featContractAddress) {
+        features = IFeaturesContract(_featContractAddress);
+    }
+
     function callSumOfTwoNums(
-        address featuresContract,
         uint256 _x,
         uint256 _y
     ) external view returns (uint) {
-        (bool sumSuccess, bytes memory sum) = featuresContract.staticcall(
-            abi.encodeWithSignature("getSumOfTwoNums(uint256,uint256)", _x, _y)
-        );
-        require(sumSuccess, "Calling sum function failed");
-        uint256 value = abi.decode(sum, (uint));
-        return value;
+        return features.getSumOfTwoNums(_x, _y);
     }
 
     function callDiffOfTwoNums(
-        address featuresContract,
-        uint256 _x,
-        uint256 _y
-    ) external view returns (uint) {
-        (bool diffSuccess, bytes memory byteDiff) = featuresContract.staticcall(
-            abi.encodeWithSignature("getDiffOfTwoNums(uint256,uint256)", _x, _y)
-        );
-        require(diffSuccess, "Calling difference function failed");
-        return abi.decode(byteDiff, (uint));
+        int256 _x,
+        int256 _y
+    ) external view returns (int) {
+        return features.getDiffOfTwoNums(_x, _y);
     }
 
     function callProductOfTwoNums(
-        address featuresContract,
         uint256 _x,
         uint256 _y
     ) external view returns (uint) {
-        (bool prodSuccess, bytes memory prodBytes) = featuresContract
-            .staticcall(
-                abi.encodeWithSignature(
-                    "getProductOfTwoNums(uint256,uint256)",
-                    _x,
-                    _y
-                )
-            );
-        require(prodSuccess, "Calling product function failed");
-        return abi.decode(prodBytes, (uint256));
+        return features.getProductOfTwoNums(_x, _y);
     }
 
+    // Applying the low-level calls lesson here.
     function callQuoOfTwoNums(
         address featuresContract,
         uint256 _x,
@@ -71,10 +64,7 @@ contract FeaturesContract {
         return x + y;
     }
 
-    function getDiffOfTwoNums(
-        uint256 x,
-        uint256 y
-    ) external pure returns (uint) {
+    function getDiffOfTwoNums(int256 x, int256 y) external pure returns (int) {
         return x - y;
     }
 
