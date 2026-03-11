@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mhel's IPFS Docs Uploader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4 font-sans">
+    <div class="bg-white shadow-xl rounded-xl w-full max-w-lg p-6 space-y-4">
+      <h2 class="text-2xl font-bold text-center text-indigo-600">My IPFS Docs Uploader</h2>
+
+      <!-- API Key Section -->
+      <div class="bg-gray-50 p-3 rounded-lg border border-dashed border-gray-300">
+        <label class="text-xs font-semibold text-gray-500 block mb-1">Pinata JWT API Key</label>
+        <input
+          type="text"
+          id="apiKey"
+          placeholder="Paste JWT here..."
+          class="w-full text-sm px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-300"
+        />
+        <p class="text-xs text-gray-500 pt-2">Your key is used locally and never stored.</p>
+      </div>
+
+      <form id="uploadForm" class="space-y-3">
+        <!-- Picture & Preview -->
+        <div class="text-center">
+          <label class="block text-sm font-medium text-gray-700 mb-1">2x2 Picture</label>
+          <input
+            type="file"
+            id="picture"
+            accept="image/*"
+            required
+            class="border p-2 rounded block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+          />
+          <img
+            id="imagePreview"
+            class="hidden mt-2 mx-auto w-32 h-32 rounded border object-cover"
+          />
+        </div>
+
+        <!-- Name Grid -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700">First Name</label>
+            <input
+              type="text"
+              id="firstName"
+              required
+              class="mt-1 w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Last Name</label>
+            <input
+              type="text"
+              id="lastName"
+              required
+              class="mt-1 w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Middle Name</label>
+            <input
+              type="text"
+              id="middleName"
+              class="mt-1 w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Position</label>
+            <input
+              type="text"
+              id="position"
+              required
+              class="mt-1 w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            />
+          </div>
+        </div>
+
+        <!-- Resume -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Resume / CV</label>
+          <input
+            type="file"
+            id="resume"
+            accept=".pdf,.doc,.docx"
+            required
+            class="border p-2 rounded mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+          />
+        </div>
+
+        <button
+          type="submit"
+          id="submitBtn"
+          class="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-semibold hover:bg-indigo-700 transition disabled:bg-indigo-300"
+        >
+          Upload to IPFS
+        </button>
+      </form>
+
+      <!-- Status Box -->
+      <div id="statusBox" class="hidden p-4 rounded-lg text-sm text-center"></div>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const statusBox = $('statusBox');
+      const btn = $('submitBtn');
+
+      // Image Preview
+      $('picture').onchange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            $('imagePreview').src = ev.target.result;
+            $('imagePreview').classList.remove('hidden');
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+
+      // Upload Logic
+      $('uploadForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const jwt = $('apiKey').value.trim();
+        if (!jwt) return setStatus('API Key required', 'error');
+
+        btn.disabled = true;
+        btn.textContent = 'Processing...';
+
+        try {
+          // Helper to upload file
+          const uploadFile = async (file) => {
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${jwt}` },
+              body: formData,
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error?.details || 'Upload failed');
+            return data.IpfsHash;
+          };
+
+          // Helper to upload JSON
+          const uploadJSON = async (obj) => {
+            const res = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+              body: JSON.stringify({ pinataContent: obj }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error('JSON upload failed');
+            return data.IpfsHash;
+          };
+
+          setStatus('Uploading Picture...', 'success');
+          const pictureFile = $('picture').files[0];
+          const pictureCID = await uploadFile(pictureFile);
+
+          setStatus('Uploading Resume...', 'success');
+          const resumeFile = $('resume').files[0];
+          const resumeCID = await uploadFile(resumeFile);
+
+          setStatus('Finalizing...', 'success');
+
+          const GATEWAY_URL = 'https://gateway.pinata.cloud/ipfs/';
+          const metaCID = await uploadJSON({
+            firstName: $('firstName').value,
+            lastName: $('lastName').value,
+            middleName: $('middleName').value,
+            position: $('position').value,
+            timestamp: new Date().toISOString(),
+            documents: {
+              picture: {
+                filename: pictureFile.name,
+                cid: pictureCID,
+                url: GATEWAY_URL + pictureCID,
+              },
+              resume: {
+                filename: resumeFile.name,
+                cid: resumeCID,
+                url: GATEWAY_URL + resumeCID,
+              },
+            },
+            // picture: `ipfs://${pictureCID}`,
+            // resume: `ipfs://${resumeCID}`,
+          });
+
+          setStatus('Success!', 'success');
+          statusBox.innerHTML += `
+                    <div class="mt-2 text-left space-y-1 break-all">
+                        <p><b>Record:</b> <a href="${GATEWAY_URL}${metaCID}" target="_blank" class="text-indigo-600 underline">${GATEWAY_URL}${metaCID}</a></p>
+                        <p><b>Picture:</b> <a href="${GATEWAY_URL}${pictureCID}" target="_blank" class="text-indigo-600 underline">${GATEWAY_URL}${pictureCID}</a></p>
+                        <p><b>Resume:</b> <a href="${GATEWAY_URL}${resumeCID}" target="_blank" class="text-indigo-600 underline">${GATEWAY_URL}${resumeCID}</a></p>
+                    </div>
+                `;
+        } catch (err) {
+          setStatus(`Error: ${err.message}`, 'error');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Upload to IPFS';
+        }
+      };
+
+      function setStatus(msg, type) {
+        statusBox.className = `p-4 rounded-lg text-sm text-center ${type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
+        statusBox.innerHTML = msg;
+        statusBox.classList.remove('hidden');
+      }
+    </script>
+  </body>
+</html>
